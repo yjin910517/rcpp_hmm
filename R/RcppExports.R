@@ -7,13 +7,14 @@
 #'
 #' @param ts size m NumericVector of timestamp associated with each observed outcome
 #' @param theta a double type parameter for the calculation of transition probability
-#' @param obs a NumericMatrix with # of columns the same as the length of ts, and # of rows the same as # of possible states, each element is the probability for observed outcome given each state at each timestamp 
+#' @param obs a NumericMatrix with # of columns the same as the length of ts, and # of rows the same as # of possible states, each element is the probability for observed outcome given each state at each timestamp
 #' @return a vector of length m (the length of ts), representing the Viterbi path of maximum likelihood
-#' @examples 
+#' @examples
 #' obs <- matrix(c(0.88,0.10,0.88,0.10,0.02,0.30,0.02,0.30,0.10,0.60),2,5)
 #' theta <- log(2)
 #' ts <- c(1,2,3,4,5)
 #' ctmcViterbi(ts,theta,obs)
+#' @references BIOS 615 lecture notes
 #' @export
 ctmcViterbi <- function(ts, theta, obs) {
     .Call('_jinyueHW4_ctmcViterbi', PACKAGE = 'jinyueHW4', ts, theta, obs)
@@ -25,12 +26,14 @@ ctmcViterbi <- function(ts, theta, obs) {
 #'
 #' @param ts size m NumericVector of timestamp associated with each observed outcome
 #' @param theta a double type parameter for the calculation of transition probability
-#' @param obs a NumericMatrix with # of columns the same as the length of ts, and # of rows the same as # of possible states, each element is the probability for observed outcome given each state at each timestamp 
+#' @param obs a NumericMatrix with # of columns the same as the length of ts, and # of rows the same as # of possible states, each element is the probability for observed outcome given each state at each timestamp
 #' @return a m*n NumeriMatrix, where m is the length of ts and n is the # of possible state. The matrix represents the conditional probability of each state at each timestamp given the observed outcome
+#' @examples
 #' obs <- matrix(c(0.88,0.10,0.88,0.10,0.02,0.30,0.02,0.30,0.10,0.60),2,5)
 #' theta <- log(2)
 #' ts <- c(1,2.95,3,4,5)
 #' ctmcForwardBackward(ts,theta,obs)
+#' @references BIOS 615 lecture notes
 #' @export
 ctmcForwardBackward <- function(ts, theta, obs) {
     .Call('_jinyueHW4_ctmcForwardBackward', PACKAGE = 'jinyueHW4', ts, theta, obs)

@@ -21,13 +21,14 @@ double transProb(bool eq, double t1, double t2, double theta, int n) {
 //'
 //' @param ts size m NumericVector of timestamp associated with each observed outcome
 //' @param theta a double type parameter for the calculation of transition probability
-//' @param obs a NumericMatrix with # of columns the same as the length of ts, and # of rows the same as # of possible states, each element is the probability for observed outcome given each state at each timestamp 
+//' @param obs a NumericMatrix with # of columns the same as the length of ts, and # of rows the same as # of possible states, each element is the probability for observed outcome given each state at each timestamp
 //' @return a vector of length m (the length of ts), representing the Viterbi path of maximum likelihood
-//' @examples 
+//' @examples
 //' obs <- matrix(c(0.88,0.10,0.88,0.10,0.02,0.30,0.02,0.30,0.10,0.60),2,5)
 //' theta <- log(2)
 //' ts <- c(1,2,3,4,5)
 //' ctmcViterbi(ts,theta,obs)
+//' @references BIOS 615 lecture notes
 //' @export
 // [[Rcpp::export]]
 IntegerVector ctmcViterbi(NumericVector ts, double theta, NumericMatrix obs) {
@@ -73,15 +74,15 @@ IntegerVector ctmcViterbi(NumericVector ts, double theta, NumericMatrix obs) {
         //prevMaxS is the state with the largest delta value in previous timestamp and different from current state
         prevMaxS = i==TopStates(0,j-1)?TopStates(1,j-1):TopStates(0,j-1);
         if (delta(i,j-1)*pSameState > delta(prevMaxS,j-1)*pDiffState) {
-            //solution for precision issue: each element in delta col j is enlarged n times to compensate the shrinking of value
+            //solution for precision issue: each element in delta col j is enlarged log(n) times to compensate the shrinking of value
             //the relative quantity of elements within the same column remains the same, which won't effect the final output
-            delta(i,j)= delta(i,j-1)*pSameState*obs(i,j)*n;
+            delta(i,j)= delta(i,j-1)*pSameState*obs(i,j)*log(n);
             phi(i,j)=i;
         }
         else {
-            //solution for precision issue: each element in delta col j is enlarged n times to compensate the shrinking of value
+            //solution for precision issue: each element in delta col j is enlarged log(n) times to compensate the shrinking of value
             //the relative quantity of elements within the same column remains the same, which won't effect the final output
-            delta(i,j)=delta(prevMaxS,j-1)*pDiffState*obs(i,j)*n;
+            delta(i,j)=delta(prevMaxS,j-1)*pDiffState*obs(i,j)*log(n);
             phi(i,j)=prevMaxS;
         }
         //fill in topstates matrix for the convenience of calculation in next timestamp
@@ -119,12 +120,14 @@ IntegerVector ctmcViterbi(NumericVector ts, double theta, NumericMatrix obs) {
 //'
 //' @param ts size m NumericVector of timestamp associated with each observed outcome
 //' @param theta a double type parameter for the calculation of transition probability
-//' @param obs a NumericMatrix with # of columns the same as the length of ts, and # of rows the same as # of possible states, each element is the probability for observed outcome given each state at each timestamp 
+//' @param obs a NumericMatrix with # of columns the same as the length of ts, and # of rows the same as # of possible states, each element is the probability for observed outcome given each state at each timestamp
 //' @return a m*n NumeriMatrix, where m is the length of ts and n is the # of possible state. The matrix represents the conditional probability of each state at each timestamp given the observed outcome
+//' @examples
 //' obs <- matrix(c(0.88,0.10,0.88,0.10,0.02,0.30,0.02,0.30,0.10,0.60),2,5)
 //' theta <- log(2)
 //' ts <- c(1,2.95,3,4,5)
 //' ctmcForwardBackward(ts,theta,obs)
+//' @references BIOS 615 lecture notes
 //' @export
 // [[Rcpp::export]]
 NumericMatrix ctmcForwardBackward(NumericVector ts, double theta, NumericMatrix obs) {
@@ -154,9 +157,9 @@ NumericMatrix ctmcForwardBackward(NumericVector ts, double theta, NumericMatrix 
     //fill in column j of alpha using forward algorithm
     for (int i=0;i<n;i++) {
         alpha(i,j)=transProb(true,ts[j-1],ts[j],theta,n)*alpha(i,j-1)+transProb(false,ts[j-1],ts[j],theta,n)*(col_sum-alpha(i,j-1));
-        //solution for precision issue: each element in alpha col j is enlarged n times to compensate the shrinking of value
+        //solution for precision issue: each element in alpha col j is enlarged log(n) times to compensate the shrinking of value
         //the relative quantity of elements within the same column remains the same, which won't effect the final output
-        alpha(i,j)*=n;
+        alpha(i,j)*=log(n);
         alpha(i,j)*=obs(i,j);
     }
   }
@@ -176,9 +179,9 @@ NumericMatrix ctmcForwardBackward(NumericVector ts, double theta, NumericMatrix 
     for (int i=0;i<n;i++) {
         beta(i,j)=transProb(true,ts[j],ts[j+1],theta,n)*beta(i,j+1)*obs(i,j+1);
         beta(i,j)+=transProb(false,ts[j],ts[j+1],theta,n)*(col_sum-beta(i,j+1)*obs(i,j+1));
-        //solution for precision issue: each element in alpha col j is enlarged n times to compensate the shrinking of value
+        //solution for precision issue: each element in alpha col j is enlarged log(n) times to compensate the shrinking of value
         //the relative quantity of elements within the same column remains the same, which won't effect the final output
-        beta(i,j)*=n;
+        beta(i,j)*=log(n);
     }
   }
   //End backward algorithm
