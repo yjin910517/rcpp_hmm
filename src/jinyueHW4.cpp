@@ -44,12 +44,12 @@ IntegerVector ctmcViterbi(NumericVector ts, double theta, NumericMatrix obs) {
   //the purpose of this matrix is to reduce time complexity to mn
   IntegerMatrix TopStates(2,m);
 
-  double max1=0,max2=0;
+  double max1=-INFINITY,max2=-INFINITY;
   double pSameState = transProb(true,0,ts[0],theta,n);
   double pDiffState = transProb(false,0,ts[0],theta,n);
   double initProb = pSameState>pDiffState ? pSameState:pDiffState;
   for (int i=0;i<n;i++) {
-    delta(i,0) = initProb*obs(i,0);
+    delta(i,0) = log(initProb*obs(i,0));
     //fill in topstates matrix for the convenience of calculation in next timestamp
     if (delta(i,0)>max1) {
         max2=max1;
@@ -65,24 +65,21 @@ IntegerVector ctmcViterbi(NumericVector ts, double theta, NumericMatrix obs) {
 
   int prevMaxS;
   for (int j=1;j<m;j++) {
-    max1=0;
-    max2=0;
+    max1=-INFINITY;
+    max2=-INFINITY;
     pSameState = transProb(true,ts[j-1],ts[j],theta,n);
     pDiffState = transProb(false,ts[j-1],ts[j],theta,n);
     for (int i=0;i<n;i++) {
         //fill in delta and phi matrix
         //prevMaxS is the state with the largest delta value in previous timestamp and different from current state
         prevMaxS = i==TopStates(0,j-1)?TopStates(1,j-1):TopStates(0,j-1);
-        if (delta(i,j-1)*pSameState > delta(prevMaxS,j-1)*pDiffState) {
-            //solution for precision issue: each element in delta col j is enlarged log(n) times to compensate the shrinking of value
-            //the relative quantity of elements within the same column remains the same, which won't effect the final output
-            delta(i,j)= delta(i,j-1)*pSameState*obs(i,j)*log(n);
+        if (delta(i,j-1)+log(pSameState) > delta(prevMaxS,j-1)+log(pDiffState)) {
+            delta(i,j)= delta(i,j-1)+log(pSameState*obs(i,j));
             phi(i,j)=i;
         }
         else {
-            //solution for precision issue: each element in delta col j is enlarged log(n) times to compensate the shrinking of value
-            //the relative quantity of elements within the same column remains the same, which won't effect the final output
-            delta(i,j)=delta(prevMaxS,j-1)*pDiffState*obs(i,j)*log(n);
+
+            delta(i,j)=delta(prevMaxS,j-1)+log(pDiffState*obs(i,j));
             phi(i,j)=prevMaxS;
         }
         //fill in topstates matrix for the convenience of calculation in next timestamp
@@ -99,7 +96,7 @@ IntegerVector ctmcViterbi(NumericVector ts, double theta, NumericMatrix obs) {
     }
   }
 
-  double v=0;
+  double v=-INFINITY;
   for (int i=0;i<n;i++) {
     if (delta(i,m-1)>v) {
         v=delta(i,m-1);
@@ -142,9 +139,11 @@ NumericMatrix ctmcForwardBackward(NumericVector ts, double theta, NumericMatrix 
 
   //Start forward algorithm
   //Initiate first column in alpha
+  double pSame = transProb(true,0,ts[0],theta,n);
+  double pDiff = transProb(false,0,ts[0],theta,n);
   for (int i=0;i<n;i++) {
-    alpha(i,0)=transProb(true,0,ts[0],theta,n)/n+transProb(false,0,ts[0],theta,n)*(n-1)/n;
-    alpha(i,0)*=obs(i,0);
+    alpha(i,0)=log(pSame/n+pDiff*(n-1)/n);
+    alpha(i,0)+=log(obs(i,0));
   }
 
   double col_sum;
@@ -152,36 +151,33 @@ NumericMatrix ctmcForwardBackward(NumericVector ts, double theta, NumericMatrix 
     //calculate the sum of column j-1 in alpha to reduce the time complexity within each j loop from O(n^2) to O(n)
     col_sum=0;
     for (int i=0;i<n;i++) {
-        col_sum+=alpha(i,j-1);
+        col_sum+=exp(alpha(i,j-1));
     }
     //fill in column j of alpha using forward algorithm
+    pSame = transProb(true,ts[j-1],ts[j],theta,n);
+    pDiff = transProb(false,ts[j-1],ts[j],theta,n);
     for (int i=0;i<n;i++) {
-        alpha(i,j)=transProb(true,ts[j-1],ts[j],theta,n)*alpha(i,j-1)+transProb(false,ts[j-1],ts[j],theta,n)*(col_sum-alpha(i,j-1));
-        //solution for precision issue: each element in alpha col j is enlarged log(n) times to compensate the shrinking of value
-        //the relative quantity of elements within the same column remains the same, which won't effect the final output
-        alpha(i,j)*=log(n);
-        alpha(i,j)*=obs(i,j);
+        alpha(i,j)=log(pSame*exp(alpha(i,j-1))+pDiff*(col_sum-exp(alpha(i,j-1))));
+        alpha(i,j)+=log(obs(i,j));
     }
   }
   //End forward algorithm
   //Start backward algorithm
   for (int i=0;i<n;i++) {
-    beta(i,m-1)=1;
+    beta(i,m-1)=0;
   }
 
   for (int j=m-2;j>=0;j--) {
     //calculate the column sum of beta(i,j+1)*obs(i,j+1) to reduce the time complexity within each j loop from O(n^2) to O(n)
     col_sum=0;
     for (int i=0;i<n;i++) {
-        col_sum+=beta(i,j+1)*obs(i,j+1);
+        col_sum+=exp(beta(i,j+1)+log(obs(i,j+1)));
     }
     //fill in column j of beta using backward algorithm
+    pSame = transProb(true,ts[j],ts[j+1],theta,n);
+    pDiff = transProb(false,ts[j],ts[j+1],theta,n);
     for (int i=0;i<n;i++) {
-        beta(i,j)=transProb(true,ts[j],ts[j+1],theta,n)*beta(i,j+1)*obs(i,j+1);
-        beta(i,j)+=transProb(false,ts[j],ts[j+1],theta,n)*(col_sum-beta(i,j+1)*obs(i,j+1));
-        //solution for precision issue: each element in alpha col j is enlarged log(n) times to compensate the shrinking of value
-        //the relative quantity of elements within the same column remains the same, which won't effect the final output
-        beta(i,j)*=log(n);
+        beta(i,j)=log(pSame*exp(beta(i,j+1))*obs(i,j+1)+pDiff*(col_sum-exp(beta(i,j+1))*obs(i,j+1)));
     }
   }
   //End backward algorithm
@@ -190,10 +186,10 @@ NumericMatrix ctmcForwardBackward(NumericVector ts, double theta, NumericMatrix 
   for (int j=0;j<m;j++) {
     col_sum=0;
     for (int i=0;i<n;i++) {
-        col_sum+=alpha(i,j)*beta(i,j);
+        col_sum+=exp(alpha(i,j)+beta(i,j));
     }
     for (int i=0;i<n;i++) {
-        condProb(i,j)=alpha(i,j)*beta(i,j)/col_sum;
+        condProb(i,j)=exp(alpha(i,j)+beta(i,j))/col_sum;
     }
   }
   return condProb;
