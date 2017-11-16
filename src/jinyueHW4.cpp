@@ -150,6 +150,7 @@ NumericMatrix ctmcForwardBackward(NumericVector ts, double theta, NumericMatrix 
     //calculate the sum of column j-1 in alpha to reduce the time complexity within each j loop from O(n^2) to O(n)
     //also for the purpose of calculating conditional probability of each column, which would address precision issue
     //the sum idea was came from myself originally, the conditional probability idea was found online, from lecture notes of other universities
+    //one of the university lecture notes reference is http://users-cs.au.dk/cstorm/courses/ML_e15
     col_sum=0;
     for (int i=0;i<n;i++) {
         col_sum+=alpha(i,j-1);
@@ -172,6 +173,7 @@ NumericMatrix ctmcForwardBackward(NumericVector ts, double theta, NumericMatrix 
     //calculate the column sum of beta(i,j+1)*obs(i,j+1) to reduce the time complexity within each j loop from O(n^2) to O(n)
     //also for the purpose of calculating conditional probability of each column, which would address precision issue
     //the sum idea was came from myself originally, the conditional probability idea was found online, from lecture notes of other universities
+    //one of the university lecture notes reference is http://users-cs.au.dk/cstorm/courses/ML_e15
     col_sum=0;
     for (int i=0;i<n;i++) {
         col_sum+=beta(i,j+1)*obs(i,j+1);
