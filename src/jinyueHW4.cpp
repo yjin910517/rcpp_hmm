@@ -142,42 +142,45 @@ NumericMatrix ctmcForwardBackward(NumericVector ts, double theta, NumericMatrix 
   double pSame = transProb(true,0,ts[0],theta,n);
   double pDiff = transProb(false,0,ts[0],theta,n);
   for (int i=0;i<n;i++) {
-    alpha(i,0)=log(pSame/n+pDiff*(n-1)/n);
-    alpha(i,0)+=log(obs(i,0));
+    alpha(i,0)=(pSame/n+pDiff*(n-1)/n)*obs(i,0);
   }
 
   double col_sum;
   for (int j=1;j<m;j++) {
     //calculate the sum of column j-1 in alpha to reduce the time complexity within each j loop from O(n^2) to O(n)
+    //also for the purpose of calculating conditional probability of each column, which would address precision issue
+    //the sum idea was came from myself originally, the conditional probability idea was found online, from lecture notes of other universities
     col_sum=0;
     for (int i=0;i<n;i++) {
-        col_sum+=exp(alpha(i,j-1));
+        col_sum+=alpha(i,j-1);
     }
     //fill in column j of alpha using forward algorithm
     pSame = transProb(true,ts[j-1],ts[j],theta,n);
     pDiff = transProb(false,ts[j-1],ts[j],theta,n);
     for (int i=0;i<n;i++) {
-        alpha(i,j)=log(pSame*exp(alpha(i,j-1))+pDiff*(col_sum-exp(alpha(i,j-1))));
-        alpha(i,j)+=log(obs(i,j));
+        alpha(i,j)=(pSame*alpha(i,j-1)+pDiff*(col_sum-alpha(i,j-1)))/col_sum;
+        alpha(i,j)*=obs(i,j);
     }
   }
   //End forward algorithm
   //Start backward algorithm
   for (int i=0;i<n;i++) {
-    beta(i,m-1)=0;
+    beta(i,m-1)=1;
   }
 
   for (int j=m-2;j>=0;j--) {
     //calculate the column sum of beta(i,j+1)*obs(i,j+1) to reduce the time complexity within each j loop from O(n^2) to O(n)
+    //also for the purpose of calculating conditional probability of each column, which would address precision issue
+    //the sum idea was came from myself originally, the conditional probability idea was found online, from lecture notes of other universities
     col_sum=0;
     for (int i=0;i<n;i++) {
-        col_sum+=exp(beta(i,j+1)+log(obs(i,j+1)));
+        col_sum+=beta(i,j+1)*obs(i,j+1);
     }
     //fill in column j of beta using backward algorithm
     pSame = transProb(true,ts[j],ts[j+1],theta,n);
     pDiff = transProb(false,ts[j],ts[j+1],theta,n);
     for (int i=0;i<n;i++) {
-        beta(i,j)=log(pSame*exp(beta(i,j+1))*obs(i,j+1)+pDiff*(col_sum-exp(beta(i,j+1))*obs(i,j+1)));
+        beta(i,j)=(pSame*beta(i,j+1)*obs(i,j+1)+pDiff*(col_sum-beta(i,j+1)*obs(i,j+1)))/col_sum;
     }
   }
   //End backward algorithm
@@ -186,10 +189,10 @@ NumericMatrix ctmcForwardBackward(NumericVector ts, double theta, NumericMatrix 
   for (int j=0;j<m;j++) {
     col_sum=0;
     for (int i=0;i<n;i++) {
-        col_sum+=exp(alpha(i,j)+beta(i,j));
+        col_sum+=alpha(i,j)*beta(i,j);
     }
     for (int i=0;i<n;i++) {
-        condProb(i,j)=exp(alpha(i,j)+beta(i,j))/col_sum;
+        condProb(i,j)=alpha(i,j)*beta(i,j)/col_sum;
     }
   }
   return condProb;
